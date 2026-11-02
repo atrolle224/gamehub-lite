@@ -41,7 +41,11 @@ BASE_PACKAGE="gamehub.lite"
 
 # Variant definitions as space-separated pairs: "name:package"
 # Order matters for release builds
-VARIANTS="base:gamehub.lite antutu:com.antutu.ABenchMark alt-antutu:com.antutu.benchmark.full ludashi:com.ludashi.aibench pubg:com.tencent.ig"
+VARIANTS="${VARIANTS:-base:gamehub.lite antutu:com.antutu.ABenchMark alt-antutu:com.antutu.benchmark.full ludashi:com.ludashi.aibench pubg:com.tencent.ig}"
+
+# Optional app label and output name prefix (custom builds)
+APP_NAME="${APP_NAME:-}"
+OUTPUT_PREFIX="${OUTPUT_PREFIX:-GameHub-Lite}"
 
 # Get package name for a variant
 get_variant_package() {
@@ -141,12 +145,12 @@ get_output_filename() {
 
     if [ "$variant" = "base" ]; then
         if [ "$RELEASE" = "true" ]; then
-            echo "$OUTPUT_DIR/GameHub-Lite-v${VERSION}.apk"
+            echo "$OUTPUT_DIR/${OUTPUT_PREFIX}-v${VERSION}.apk"
         else
             echo "$OUTPUT_DIR/GameHub-Lite.apk"
         fi
     else
-        echo "$OUTPUT_DIR/GameHub-Lite-v${VERSION}-${variant}.apk"
+        echo "$OUTPUT_DIR/${OUTPUT_PREFIX}-v${VERSION}-${variant}.apk"
     fi
 }
 
@@ -533,6 +537,19 @@ sign_apk() {
     print_success "APK signed: $(basename "$target_apk")"
 }
 
+# Rename the launcher label when APP_NAME is set
+apply_app_name() {
+    [ -n "$APP_NAME" ] || return 0
+    print_step "Setting app name: $APP_NAME"
+    local f
+    for f in "$WORK_DIR"/decompiled/res/values*/strings.xml; do
+        [ -f "$f" ] || continue
+        sed -i.bak "s#<string name=\"app_name\">[^<]*</string>#<string name=\"app_name\">${APP_NAME}</string>#" "$f"
+        rm -f "$f.bak"
+    done
+    print_success "App name set"
+}
+
 # Build a single variant
 build_variant() {
     local variant="$1"
@@ -625,6 +642,7 @@ main() {
     apply_patches
     apply_binary_replacements
     apply_additions
+    apply_app_name
 
     if [ "$RELEASE" = "true" ]; then
         # Backup manifest for variant builds
